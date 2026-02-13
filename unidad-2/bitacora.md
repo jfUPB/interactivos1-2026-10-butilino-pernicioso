@@ -450,17 +450,61 @@ estado_Armed: ENTRY/ \n mostrar pixeles \n start timer
 estado_Armed:\n Timeout/ \n pixeles -=1 \n mostrar pixeles
 
 
-estado_Armed --> estado_end:Timeout/
+estado_Armed --> estado_end:Timeout [remaining == 0] /
 estado_end: ENTRY/ \n mostrar calavera \n music.pitch
 estado_end --> estado_config:A/
 @enduml
 ```
+
+<img width="257" height="727" alt="image" src="https://github.com/user-attachments/assets/7df5e6cf-b9f3-434f-a19e-2e32664a2bf8" />
+
 
 ## Bitácora de aplicación 
 
 
 
 ## Bitácora de reflexión
+
+codigo en p5.js
+```js
+let port;
+let connectBtn;
+
+function setup() {
+  createCanvas(300, 200);
+
+  port = createSerial();
+
+  connectBtn = createButton("Conectar micro:bit");
+  connectBtn.position(10, 10);
+  connectBtn.mousePressed(() => port.open());
+
+  textAlign(CENTER, CENTER);
+  textSize(18);
+}
+
+function draw() {
+  background(30);
+  fill(255);
+  text("A / B / S para controlar", width/2, height/2);
+}
+
+
+// ==========================================
+// SOLO ENVIAR EVENTOS
+// ==========================================
+
+function keyPressed() {
+
+  if (!port.opened()) return;
+
+  if (key === 'A') port.write("A\n");
+  if (key === 'B') port.write("B\n");
+  if (key === 'S') port.write("S\n");
+}
+
+```
+
 
 
 
