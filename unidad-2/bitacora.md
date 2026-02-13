@@ -368,7 +368,7 @@ while True:
 ```
 
 ```py
-rom microbit import *
+from microbit import *
 import utime
 
 # ======================================================
@@ -440,12 +440,18 @@ class Task:
 title actividad 4
 
 [*]--> estado_config
-estado_config:ENTRYT/\n self.timer.stop()\nself.pixeles = self.DEFAULT_PIX\ndisplay.show(FILL[self.pixeles])\n A/
+estado_config: ENTRY/\n stop timer\n pixeles=20\n mostrar pixeles
+estado_config:\n A / \n pixeles < 25: \n pixeles += 1 \n mostrar pixeles
+estado_config:\n B/ \n pixeles > 15: \n pixeles -= 1 \n mostrar pixeles
+
 
 estado_config --> estado_Armed:S/
-estado_Armed:
+estado_Armed: ENTRY/ \n mostrar pixeles \n start timer
+estado_Armed:\n Timeout/ \n pixeles -=1 \n mostrar pixeles
+
 
 estado_Armed --> estado_end:Timeout/
+estado_end: ENTRY/ \n mostrar calavera \n music.pitch
 estado_end --> estado_config:A/
 @enduml
 ```
@@ -455,5 +461,6 @@ estado_end --> estado_config:A/
 
 
 ## Bitácora de reflexión
+
 
 
