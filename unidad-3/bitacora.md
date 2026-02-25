@@ -34,6 +34,8 @@ if ev == "A" or ev == "B":
                 self.secDes.clear()
 ```
 
+notemos que la lista no se esta limpiando cuando pasamos de estado, por lo que cuando volvemos a este estado la lista ya esta llena, debemos agregar el el clear en el entry del estado
+
 ### actividad 4
 
 ```py
@@ -357,12 +359,52 @@ class FSMTask {
   </body>
 </html>
 ```
+en el estado armed hice esteo
+```js
+ estado_armed = (ev) => {
+    if (ev === ENTRY) {
+      this.myTimer.start();
+    } else if (ev === EVENTS.TICK) {
+      if (this.remainingSeconds > 0) {
+        this.remainingSeconds--;  
+        if (this.remainingSeconds === 0) {
+          this.transitionTo(this.estado_timeout);
+        } else {
+          this.myTimer.start();
+        }
+      }
+    /* pausar y despuasar con A*/
+      
+    }  else if (ev === EVENTS.START) {  // evento S
+      if (this.myTimer.active === false) {
+        this.myTimer.start();  // reanudar
+        print("reanudado", this.myTimer.active);
+      } else {
+        this.myTimer.stop();   // pausar
+        print("pausado", this.myTimer.active);
+      }
+    }
+    
+    if (ev === EVENTOS.DEC || ev === EVENTOS.DEC){
+      code.push(ev);
+      if (listaEventos.length === 3 &&
+          listaEventos[0] === "A" &&
+          listaEventos[1] === "B" &&
+          listaEventos[2] === "A"){
+        
+      }
+      else {
+        
+      }
+    }
 
-notemos que la lista no se esta limpiando cuando pasamos de estado, por lo que cuando volvemos a este estado la lista ya esta llena, debemos agregar el el clear en el entry del estado
+  };
+```
 
 ## Bitácora de aplicación 
 
 
 
 ## Bitácora de reflexión
+
 
