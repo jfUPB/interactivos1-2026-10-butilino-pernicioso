@@ -38,6 +38,7 @@ notemos que la lista no se esta limpiando cuando pasamos de estado, por lo que c
 
 ### actividad 4
 
+codigo de micro python
 ```py
 from microbit import *
 uart.init(baudrate=115200)
@@ -57,6 +58,7 @@ while True:
    
 ```
 
+codigo del teporizador en p5.js
 ```js
 let port;
 let connectBtn;
@@ -270,7 +272,7 @@ function windowResized() {
   resizeCanvas(windowWidth, windowHeight);
 }
 ```
-
+codigo de la maquina de estados en p5.js
 ```js
 const ENTRY = "ENTRY";
 const EXIT = "EXIT";
@@ -336,7 +338,7 @@ class FSMTask {
   }
 }
 ```
-
+index p5.js
 ```js
 <!DOCTYPE html>
 <html lang="en">
@@ -359,11 +361,12 @@ class FSMTask {
   </body>
 </html>
 ```
-en el estado armed hice esteo
+en el estado armed hice esto
 ```js
  estado_armed = (ev) => {
     if (ev === ENTRY) {
       this.myTimer.start();
+      code = [];
     } else if (ev === EVENTS.TICK) {
       if (this.remainingSeconds > 0) {
         this.remainingSeconds--;  
@@ -385,20 +388,23 @@ en el estado armed hice esteo
       }
     }
     
-    if (ev === EVENTOS.DEC || ev === EVENTOS.DEC){
+    if (ev === EVENTS.DEC || ev === EVENTS.INC){
       code.push(ev);
-      if (listaEventos.length === 3 &&
-          listaEventos[0] === "A" &&
-          listaEventos[1] === "B" &&
-          listaEventos[2] === "A"){
-        
+      if (code.length === 3){
+        if (code[0] === "A" &&
+            code[1] === "B" &&
+            code[2] === "A"){
+        this.transitionTo(this.estado_config);
+        print(code);
       }
-      else {
-        
-      }
+        else {
+          print(code);
+          code = [];
+          
+        }
+     }
     }
-
-  };
+  }
 ```
 
 ## Bitácora de aplicación 
@@ -406,5 +412,63 @@ en el estado armed hice esteo
 
 
 ## Bitácora de reflexión
+
+### actividad 5
+codigo en micro python del micro bit que envia 
+```py
+from microbit import *
+import radio
+uart.init(baudrate=115200)
+radio.on()
+radio.config(group=15)
+
+
+
+while True:
+    if button_a.was_pressed():
+        radio.send('A')
+        uart.write('A')
+        delay=100
+        
+    if button_b.was_pressed():
+        radio.send('B')
+        uart.write('B')
+        delay=100
+       
+    if accelerometer.was_gesture('shake'):
+        radio.send('S')
+        uart.write('S')
+        delay=100
+       
+```
+codigo del microbit que secibe
+
+```py
+from microbit import *
+import radio
+uart.init(baudrate=115200)
+radio.on()
+radio.config(group=15)
+
+
+
+while True:
+    mensaje_remoto = radio.receive()
+
+    if mensaje_remoto:
+        uart.write(mensaje_remoto)
+        display.scroll(mensaje_remoto, delay=100)
+        
+    if button_a.was_pressed():
+        uart.write('A')
+        
+    if button_b.was_pressed():
+        uart.write('B')
+       
+    if accelerometer.was_gesture('shake'):
+        uart.write('S')
+       
+```
+
 
 
