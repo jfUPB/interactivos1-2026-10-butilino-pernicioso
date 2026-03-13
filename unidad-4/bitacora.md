@@ -1,7 +1,7 @@
 # Unidad 4
 
 ## Bitácora de proceso de aprendizaje
-
+nuevo adapter
 ```js
 const { SerialPort } = require("serialport");
 const BaseAdapter = require("./BaseAdapter");
@@ -149,7 +149,7 @@ class MicrobitV2Adapter extends BaseAdapter {
 
 module.exports = MicrobitV2Adapter;
 ```
-
+se agrega esto al bridgeServer
 ```js
 if (DEVICE === "microbitV2") {
     const path = SERIAL_PATH ?? await findMicrobitPort();
@@ -161,6 +161,191 @@ if (DEVICE === "microbitV2") {
     return new MicrobitV2Adapter({ path, baud: BAUD, verbose: VERBOSE });
   }
 
+```
+nuevo sketc
+```js
+const EVENTS = {
+    CONNECT: "CONNECT",
+    DISCONNECT: "DISCONNECT",
+    DATA: "DATA",
+    KEY_PRESSED: "KEY_PRESSED",
+    KEY_RELEASED: "KEY_RELEASED",
+};
+
+class PainterTask extends FSMTask {
+    constructor() {
+        super();
+
+        this.c = color(181, 157, 0);
+        this.lineSize = 100;
+        this.angle = 0;
+        this.clickPosX = 0;
+        this.clickPosY = 0;
+
+        this.rxData = {
+            x: 0,
+            y: 0,
+            btnA: false,
+            btnB: false,
+            prevA: false,
+            prevB: false,
+            ready: false,
+            circleResolution: 2,
+            radius:0,
+        };
+
+        this.transitionTo(this.estado_esperando);
+    }
+
+    estado_esperando = (ev) => {
+        if (ev.type === "ENTRY") {
+            cursor();
+            console.log("Waiting for connection...");
+        } else if (ev.type === EVENTS.CONNECT) {
+            this.transitionTo(this.estado_corriendo);
+        }
+    };
+
+    estado_corriendo = (ev) => {
+        if (ev.type === "ENTRY") {
+            noCursor();
+            strokeWeight(0.75);
+            background(255);
+            console.log("Microbit ready to draw");
+            this.rxData = {
+                x: 0,
+                y: 0,
+                btnA: false,
+                btnB: false,
+                prevA: false,
+                prevB: false,
+                ready: false
+            };
+        }
+
+        else if (ev.type === EVENTS.DISCONNECT) {
+            this.transitionTo(this.estado_esperando);
+        }
+
+        else if (ev.type === EVENTS.DATA) {
+            this.updateLogic(ev.payload);
+        }
+
+        else if (ev.type === EVENTS.KEY_PRESSED) {
+            this.handleKeys(ev.keyCode, ev.key);
+        }
+
+        else if (ev.type === EVENTS.KEY_RELEASED) {
+            this.handleKeyRelease(ev.keyCode, ev.key);
+        }
+
+        else if (ev.type === "EXIT") {
+            cursor();
+        }
+    };
+
+    updateLogic(data) {
+    this.rxData.ready = true;
+    this.rxData.btnA = data.btnA;
+    this.rxData.btnB = data.btnB;
+
+    // Y del acelerómetro → circleResolution (de 2 a 10 segmentos)
+    this.rxData.circleResolution = int(map(data.y, -2048, 2047, 2, 10));
+
+    // X del acelerómetro → radius
+    this.rxData.radius = map(data.x, -2048, 2047, -width / 2, width / 2);
+
+    this.prevA = this.rxData.btnA;
+    this.prevB = this.rxData.btnB;
+ }
+}
+
+let painter;
+let bridge;
+let connectBtn;
+const renderer = new Map();
+
+function setup() {
+    createCanvas(windowWidth, windowHeight);
+    noFill();
+    background(255);
+    strokeWeight(2);
+    stroke(0, 25);
+    painter = new PainterTask();
+    bridge = new BridgeClient();
+
+    bridge.onConnect(() => {
+        connectBtn.html("Disconnect");
+        painter.postEvent({ type: EVENTS.CONNECT });
+    });
+
+    bridge.onDisconnect(() => {
+        connectBtn.html("Connect");
+        painter.postEvent({ type: EVENTS.DISCONNECT });
+    });
+
+    bridge.onStatus((s) => {
+        console.log("BRIDGE STATUS:", s.state, s.detail ?? "");
+    });
+
+    bridge.onData((data) => {
+        painter.postEvent({
+            type: EVENTS.DATA, payload: {
+                x: data.x,
+                y: data.y,
+                btnA: data.btnA,
+                btnB: data.btnB
+            }
+        });
+    });
+
+    connectBtn = createButton("Connect");
+    connectBtn.position(10, 10);
+    connectBtn.mousePressed(() => {
+        if (bridge.isOpen) bridge.close();
+        else bridge.open();
+    });
+
+    renderer.set(painter.estado_corriendo, drawRunning);
+}
+
+function draw() {
+    painter.update();
+    renderer.get(painter.state)?.();
+}
+
+function drawRunning() {
+    let mb = painter.rxData;
+    if (!mb.ready) return;
+
+    // btnA activa el dibujo (equivalente a mouseIsPressed + LEFT)
+    if (!mb.btnA) return;
+
+    push();
+    translate(width / 2, height / 2);
+
+    let angle = TAU / mb.circleResolution;
+
+    // btnB activa el fill (equivalente a keyIsPressed)
+    if (mb.btnB) {
+        fill(34, 45, 122, 50);
+    } else {
+        noFill();
+    }
+
+    beginShape();
+    for (let i = 0; i <= mb.circleResolution; i++) {
+        let x = cos(angle * i) * mb.radius;
+        let y = sin(angle * i) * mb.radius;
+        vertex(x, y);
+    }
+    endShape();
+    pop();
+}
+
+function windowResized() {
+    resizeCanvas(windowWidth, windowHeight);
+}
 ```
 
 ## Bitácora de aplicación 
