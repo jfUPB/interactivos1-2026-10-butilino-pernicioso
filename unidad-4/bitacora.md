@@ -31,9 +31,12 @@ function parseCsvLine(line) {
 
 //valida el chk
    const btnANum = btnA === "true" ? 1 : 0;
-  const btnBNum = btnB === "true" ? 1 : 0;
-  const expectedChk = Math.abs(x) + Math.abs(y) + btnANum + btnBNum;
-  if (chk !== expectedChk) throw new ParseError(`Checksum mismatch: got ${chk}, expected ${expectedChk}`);
+ const btnBNum = btnB === "true" ? 1 : 0;
+ const expectedChk = Math.abs(x) + Math.abs(y) + btnANum + btnBNum;
+ if (chk !== expectedChk) {
+  console.warn(`[MicrobitV2] Corrupted frame discarded — CHK received: ${chk}, expected: ${expectedChk} | raw: ${line}`);
+  return null;
+ }
 
   return { t: t | 0, x: x | 0, y: y | 0, btnA: btnA === "true", btnB: btnB === "true" };
 }
