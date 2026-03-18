@@ -154,7 +154,7 @@ module.exports = MicrobitV2Adapter;
 ```
 se agrega esto al bridgeServer
 ```js
-if (DEVICE === "microbitV2") {
+if (DEVICE === "microbitv2") {
     const path = SERIAL_PATH ?? await findMicrobitPort();
     if (!path) {
       log.error("micro:bit V2 not found. Use --serialPort to specify manually.");
@@ -349,6 +349,33 @@ function drawRunning() {
 function windowResized() {
     resizeCanvas(windowWidth, windowHeight);
 }
+```
+nuevo protocolo de comunicacion
+
+```ph
+from microbit import *
+
+uart.init(115200)
+display.set_pixel(0, 0, 9)
+
+while True:
+    t = running_time()
+    xValue = accelerometer.get_x()
+    yValue = accelerometer.get_y()
+    aState = button_a.is_pressed()
+    bState = button_b.is_pressed()
+
+    # Calcular checksum: suma de valores absolutos de X, Y, A y B
+    chk = abs(xValue) + abs(yValue) + (1 if aState else 0) + (1 if bState else 0)
+    # Formatear CHK como entero de 3 dígitos
+    chkStr = "{:03d}".format(chk)
+
+    data = "$T:{}|X:{}|Y:{}|A:{}|B:{}|CHK:{}\n".format(
+        t, xValue, yValue, aState, bState, chkStr
+    )
+
+    uart.write(data)
+    sleep(100)  # Envía datos a 10 Hz
 ```
 
 ## Bitácora de aplicación 
