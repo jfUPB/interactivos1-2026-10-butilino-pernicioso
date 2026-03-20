@@ -1,6 +1,11 @@
 # Unidad 4
 
 ## Bitácora de proceso de aprendizaje
+
+
+## Bitácora de aplicación 
+
+### Actividad 2
 nuevo adapter
 ```js
 const { SerialPort } = require("serialport");
@@ -378,8 +383,7 @@ while True:
     sleep(100)  # Envía datos a 10 Hz
 ```
 
-## Bitácora de aplicación 
-
-
-
 ## Bitácora de reflexión
+
+<img width="870" height="666" alt="image" src="https://github.com/user-attachments/assets/dd2e0aeb-40ca-49d4-a790-c13956895804" />
+
