@@ -165,8 +165,46 @@ class MicrobitBinaryAdapter extends BaseAdapter {
 module.exports = MicrobitBinaryAdapter;
 ```
 
-paquete descartado, pruba con chk incorecto
-<img width="836" height="294" alt="image" src="https://github.com/user-attachments/assets/0bc49061-a088-4471-bb5e-7745d198d468" />
+en el codigo del server solo se le quito las lineas que estaban como comentarios en la cabeza del codigo en la funcion de crear un adapter
+
+
 
 
 ## Bitácora de reflexión
+
+paquete descartado, pruba con chk incorecto
+<img width="836" height="294" alt="image" src="https://github.com/user-attachments/assets/0bc49061-a088-4471-bb5e-7745d198d468" />
+
+### actividad 3
+
+#### comparecion ASCII vs binario
+
+_Tamaño de paquetes de bytes_  
+
+
+| ASCII        |    binario |
+| ------------ | ---------- |
+| 16 a 24 | 8 |
+
+en el formato ASCII cada caracter vale un bytes por lo depedinedo de los valores de x, y puede aumentar o disminuir, mientra que en el binario los valores de x, y simpte son 2 bytes sin importar el valor  
+
+_framing_  
+
+| ASCII        |    binario |
+| ------------ | ---------- |
+| \n | 0xAA |  
+
+osos son los mecanismos de delimitacion en el ASCII se usa el `\n` como delimitador terminal, por lo que si el programa detecta este caracter es el fin de una paquete, mientras que el binario usa la pocicion 0 de un paquete con el valor `0xAA` para indicar que aqui inica un paquete, aunque esto representa un problema dado que otro dato del paquete tambien podria tener este mismo valor pero para eso es el checksum ya que este verifica que los datos si coincidan.
+
+_Checksum_  
+
+| ASCII        |    binario |
+| ------------ | ---------- |
+| CHK = \|X\| + \|Y\| + A + B | CHK = (byte1 + byte2 + byte3 + byte4 + byte5 + byte6) % 256 |  
+
+el **CHK** del ASCII verifica que los valores tengan sendito, sumando los bytes interpretados del  no verifica que la estructura o separacion de la trama tenga sentido, mientras que le **CHK** del binario suma los bytes crudo y la multiplicaion por el modulo asegura que el CHK valga un byte  
+
+_Parsear_
+
+en este 
+
