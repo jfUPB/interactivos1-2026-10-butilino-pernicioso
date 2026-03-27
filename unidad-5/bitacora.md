@@ -177,7 +177,7 @@ paquete descartado, pruba con chk incorecto
 
 ### actividad 3
 
-#### comparecion ASCII vs binario
+#### 1) comparacion ASCII vs binario
 
 _Tamaño de paquetes de bytes_  
 
@@ -206,5 +206,30 @@ el **CHK** del ASCII verifica que los valores tengan sendito, sumando los bytes 
 
 _Parsear_
 
-en este 
+en ASCII es mas facil parcear debido al uso del caracter `\n` y que estan separados por `|` mientras que en el binario `0xAA` puede aparecer dentro de los valores por lo que se requiere una logica extra para la sincronizacion, ademas de interpretar los datos en bytes
+
+_depuracion_
+
+en este aspecto el ASCII es mejor debido a que es legible en la terminal mientras que el binario es deberas decodificarlo para saber que es lo que dice un paquete
+
+#### 2) arquitectura desacoplada
+
+se pudo agregar un protocolo diferente sin modificar las otras capas por que el proyecto esta construido de forma de que cada capa tiene una funcion y un formato de salida definido, en este caso el adapter solo se encarga de emitir los datos no importa de que dispositivos, el server recive esos datos y los enruta, asi con cada capa, como se muestra en el siguiente flujo
+
+```mermaid
+graph TD;
+    dispositivo-->adapter;
+    adapter-->server;
+    server-->fronted;
+```
+
+#### 3) cual usar
+
+el uso de un protocolo ASCII depende de las caracteristicas del proyecto que se este desarollando, como vimos este formato permite una facil depuracion y parceo por lo que seria util en un proyecto que necesitesmos realizar un constante monitorizacion, por otro lado el binario permite enviar datos en menos bytes por lo que seria util en un caso en el que tengamos que enviar muchos datos
+
+#### 4) diagrama  
+
+<img width="841" height="643" alt="image" src="https://github.com/user-attachments/assets/23c7ee09-2b3a-4ea2-8567-ca6ca1920710" />
+el brigdeServer fue lo unico modificado, ademas pues de agregar un nuevo adapter binario, lo demas el sketch, el fsm y el client no se modificaron
+
 
