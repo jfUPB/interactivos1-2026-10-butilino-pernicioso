@@ -5,5 +5,385 @@
 
 ## Bitácora de aplicación 
 
+### Actividad 2
+nuevo adapter
+```js
+const { SerialPort } = require("serialport");
+const BaseAdapter = require("./BaseAdapter");
+
+class ParseError extends Error { }
+
+function parseCsvLine(line) {
+
+//valida el inicio
+ if (!line.startsWith("$")) throw new ParseError("Missing $ prefix");
+
+
+  const values = line.trim().split("|");
+  if (values.length !== 6) throw new ParseError(`Expected 6 values, got ${values.length}`);
+
+  const t    = Number(getVal(values[0], "T"));
+  const x = Number(values[0]);
+  const y = Number(values[1]);
+  const btnA = String(values[2]).trim().toLowerCase();
+  const btnB = String(values[3]).trim().toLowerCase();
+  const chk  = Number(getVal(values[5], "CHK"));
+
+  if (!Number.isFinite(t) || t < 0)          throw new ParseError("Invalid timestamp");
+  if (!Number.isFinite(x) || !Number.isFinite(y)) throw new ParseError("Invalid numeric data");
+  if (x < -2048 || x > 2047 || y < -2048 || y > 2047) throw new ParseError("Out of expected range");
+  if (!["true", "false"].includes(btnA) || !["true", "false"].includes(btnB)) throw new ParseError("Invalid button data");
+
+//valida el chk
+   const btnANum = btnA === "true" ? 1 : 0;
+ const btnBNum = btnB === "true" ? 1 : 0;
+ const expectedChk = Math.abs(x) + Math.abs(y) + btnANum + btnBNum;
+ if (chk !== expectedChk) {
+  console.warn(`[MicrobitV2] Corrupted frame discarded — CHK received: ${chk}, expected: ${expectedChk} | raw: ${line}`);
+  return null;
+ }
+
+  return { t: t | 0, x: x | 0, y: y | 0, btnA: btnA === "true", btnB: btnB === "true" };
+}
+
+
+class MicrobitV2Adapter extends BaseAdapter {
+  constructor({ path, baud = 115200, verbose = false } = {}) {
+    super();
+    this.path = path;
+    this.baud = baud;
+    this.port = null;
+    this.buf = "";
+    this.verbose = verbose;
+  }
+
+  async connect() {
+    if (this.connected) return;
+    if (!this.path) throw new Error("serialPort is required for microbit device mode");
+
+    this.port = new SerialPort({
+      path: this.path,
+      baudRate: this.baud,
+      autoOpen: false,
+    });
+
+    await new Promise((resolve, reject) => {
+      this.port.open((err) => (err ? reject(err) : resolve()));
+    });
+
+    this.connected = true;
+    this.onConnected?.(`serial open ${this.path} @${this.baud}`);
+
+    this.port.on("data", (chunk) => this._onChunk(chunk));
+    this.port.on("error", (err) => this._fail(err));
+    this.port.on("close", () => this._closed());
+  }
+
+  async disconnect() {
+    if (!this.connected) return;
+    this.connected = false;
+
+    if (this.port && this.port.isOpen) {
+      await new Promise((resolve, reject) => {
+        this.port.close((err) => {
+          if (err) reject(err);
+          else resolve();
+        });
+      });
+    }
+    this.port = null;
+    this.buf = "";
+    this.onDisconnected?.("serial closed");
+  }
+
+  getConnectionDetail() {
+    return `serial open ${this.path}`;
+  }
+
+  _onChunk(chunk) {
+    this.buf += chunk.toString("utf8");
+
+    let idx;
+    while ((idx = this.buf.indexOf("\n")) >= 0) {
+      const line = this.buf.slice(0, idx).trim();
+      this.buf = this.buf.slice(idx + 1);
+
+      if (!line) continue;
+
+      try {
+        const parsed = parseCsvLine(line);
+        this.onData?.(parsed);
+      } catch (e) {
+        if (e instanceof ParseError) {
+          if (this.verbose) console.log("Bad data:", e.message, "raw:", line);
+        } else {
+          this._fail(e);
+        }
+      }
+    }
+
+    if (this.buf.length > 4096) this.buf = "";
+  }
+
+  _fail(err) {
+    this.onError?.(String(err?.message || err));
+    this.disconnect();
+  }
+
+  _closed() {
+    if (!this.connected) return;
+    this.connected = false;
+    this.port = null;
+    this.buf = "";
+    this.onDisconnected?.("serial closed (event)");
+  }
+
+  async writeLine(line) {
+    if (!this.port || !this.port.isOpen) return;
+    await new Promise((resolve, reject) => {
+      this.port.write(line, (err) => (err ? reject(err) : resolve()));
+    });
+  }
+
+  async handleCommand(cmd) {
+    if (cmd?.cmd === "setLed") {
+      const x = Math.max(0, Math.min(4, Math.trunc(cmd.x)));
+      const y = Math.max(0, Math.min(4, Math.trunc(cmd.y)));
+      const v = Math.max(0, Math.min(9, Math.trunc(cmd.value)));
+      await this.writeLine(`LED,${x},${y},${v}\n`);
+    }
+  }
+}
+
+module.exports = MicrobitV2Adapter;
+```
+se agrega esto al bridgeServer
+```js
+if (DEVICE === "microbitv2") {
+    const path = SERIAL_PATH ?? await findMicrobitPort();
+    if (!path) {
+      log.error("micro:bit V2 not found. Use --serialPort to specify manually.");
+      process.exit(1);
+    }
+    log.info(`micro:bit V2 found at ${path}`);
+    return new MicrobitV2Adapter({ path, baud: BAUD, verbose: VERBOSE });
+  }
+
+```
+nuevo sketc
+```js
+const EVENTS = {
+    CONNECT: "CONNECT",
+    DISCONNECT: "DISCONNECT",
+    DATA: "DATA",
+    KEY_PRESSED: "KEY_PRESSED",
+    KEY_RELEASED: "KEY_RELEASED",
+};
+
+class PainterTask extends FSMTask {
+    constructor() {
+        super();
+
+        this.c = color(181, 157, 0);
+        this.lineSize = 100;
+        this.angle = 0;
+        this.clickPosX = 0;
+        this.clickPosY = 0;
+
+        this.rxData = {
+            x: 0,
+            y: 0,
+            btnA: false,
+            btnB: false,
+            prevA: false,
+            prevB: false,
+            ready: false,
+            circleResolution: 2,
+            radius:0,
+        };
+
+        this.transitionTo(this.estado_esperando);
+    }
+
+    estado_esperando = (ev) => {
+        if (ev.type === "ENTRY") {
+            cursor();
+            console.log("Waiting for connection...");
+        } else if (ev.type === EVENTS.CONNECT) {
+            this.transitionTo(this.estado_corriendo);
+        }
+    };
+
+    estado_corriendo = (ev) => {
+        if (ev.type === "ENTRY") {
+            noCursor();
+            strokeWeight(0.75);
+            background(255);
+            console.log("Microbit ready to draw");
+            this.rxData = {
+                x: 0,
+                y: 0,
+                btnA: false,
+                btnB: false,
+                prevA: false,
+                prevB: false,
+                ready: false
+            };
+        }
+
+        else if (ev.type === EVENTS.DISCONNECT) {
+            this.transitionTo(this.estado_esperando);
+        }
+
+        else if (ev.type === EVENTS.DATA) {
+            this.updateLogic(ev.payload);
+        }
+
+        else if (ev.type === EVENTS.KEY_PRESSED) {
+            this.handleKeys(ev.keyCode, ev.key);
+        }
+
+        else if (ev.type === EVENTS.KEY_RELEASED) {
+            this.handleKeyRelease(ev.keyCode, ev.key);
+        }
+
+        else if (ev.type === "EXIT") {
+            cursor();
+        }
+    };
+
+    updateLogic(data) {
+    this.rxData.ready = true;
+    this.rxData.btnA = data.btnA;
+    this.rxData.btnB = data.btnB;
+
+    // Y del acelerómetro → circleResolution (de 2 a 10 segmentos)
+    this.rxData.circleResolution = int(map(data.y, -2048, 2047, 2, 10));
+
+    // X del acelerómetro → radius
+    this.rxData.radius = map(data.x, -2048, 2047, -width / 2, width / 2);
+
+    this.prevA = this.rxData.btnA;
+    this.prevB = this.rxData.btnB;
+ }
+}
+
+let painter;
+let bridge;
+let connectBtn;
+const renderer = new Map();
+
+function setup() {
+    createCanvas(windowWidth, windowHeight);
+    noFill();
+    background(255);
+    strokeWeight(2);
+    stroke(0, 25);
+    painter = new PainterTask();
+    bridge = new BridgeClient();
+
+    bridge.onConnect(() => {
+        connectBtn.html("Disconnect");
+        painter.postEvent({ type: EVENTS.CONNECT });
+    });
+
+    bridge.onDisconnect(() => {
+        connectBtn.html("Connect");
+        painter.postEvent({ type: EVENTS.DISCONNECT });
+    });
+
+    bridge.onStatus((s) => {
+        console.log("BRIDGE STATUS:", s.state, s.detail ?? "");
+    });
+
+    bridge.onData((data) => {
+        painter.postEvent({
+            type: EVENTS.DATA, payload: {
+                x: data.x,
+                y: data.y,
+                btnA: data.btnA,
+                btnB: data.btnB
+            }
+        });
+    });
+
+    connectBtn = createButton("Connect");
+    connectBtn.position(10, 10);
+    connectBtn.mousePressed(() => {
+        if (bridge.isOpen) bridge.close();
+        else bridge.open();
+    });
+
+    renderer.set(painter.estado_corriendo, drawRunning);
+}
+
+function draw() {
+    painter.update();
+    renderer.get(painter.state)?.();
+}
+
+function drawRunning() {
+    let mb = painter.rxData;
+    if (!mb.ready) return;
+
+    // btnA activa el dibujo (equivalente a mouseIsPressed + LEFT)
+    if (!mb.btnA) return;
+
+    push();
+    translate(width / 2, height / 2);
+
+    let angle = TAU / mb.circleResolution;
+
+    // btnB activa el fill (equivalente a keyIsPressed)
+    if (mb.btnB) {
+        fill(34, 45, 122, 50);
+    } else {
+        noFill();
+    }
+
+    beginShape();
+    for (let i = 0; i <= mb.circleResolution; i++) {
+        let x = cos(angle * i) * mb.radius;
+        let y = sin(angle * i) * mb.radius;
+        vertex(x, y);
+    }
+    endShape();
+    pop();
+}
+
+function windowResized() {
+    resizeCanvas(windowWidth, windowHeight);
+}
+```
+nuevo protocolo de comunicacion
+
+```ph
+from microbit import *
+
+uart.init(115200)
+display.set_pixel(0, 0, 9)
+
+while True:
+    t = running_time()
+    xValue = accelerometer.get_x()
+    yValue = accelerometer.get_y()
+    aState = button_a.is_pressed()
+    bState = button_b.is_pressed()
+
+    # Calcular checksum: suma de valores absolutos de X, Y, A y B
+    chk = abs(xValue) + abs(yValue) + (1 if aState else 0) + (1 if bState else 0)
+    # Formatear CHK como entero de 3 dígitos
+    chkStr = "{:03d}".format(chk)
+
+    data = "$T:{}|X:{}|Y:{}|A:{}|B:{}|CHK:{}\n".format(
+        t, xValue, yValue, aState, bState, chkStr
+    )
+
+    uart.write(data)
+    sleep(100)  # Envía datos a 10 Hz
+```
 
 ## Bitácora de reflexión
+
+<img width="870" height="666" alt="image" src="https://github.com/user-attachments/assets/dd2e0aeb-40ca-49d4-a790-c13956895804" />
+
